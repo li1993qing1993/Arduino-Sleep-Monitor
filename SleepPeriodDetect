@@ -1,0 +1,81 @@
+avg = 0
+count = 0
+sum = 0
+sleepPeriod = 0;
+for i = 1:240:length(D2)
+    count = 0
+    sum = 0
+    for j = 0:239
+        if(D2(i+j)>10)
+            sum = sum+D2(i+j);
+            count = count+1;
+        end
+    end
+    if(count>0)
+    avg = [avg,sum/count];
+    else avg = [avg,0];
+    end
+end
+subplot(4,1,1)
+plot(D2)
+subplot(4,1,2)
+plot(avg)
+for i = 1:length(avg)
+    period = 0;
+    l= i;
+    t = i;
+    for j = 0:10
+        t = i+j;
+        if(t>length(avg))t=length(avg);
+        end
+        if(avg(t)>5)
+            for k = 0:15
+                l = i+j+k;
+                if(l>length(avg))
+                    l=length(avg);
+                end
+                if(l>5||l==length(avg))
+                period = 1;
+                i = l;
+                break;
+                end
+            end
+        end
+        if(period ==1)break;
+        end
+    end
+    if(period ==1)
+        sleepPeriod = [sleepPeriod,i];
+    end
+end
+for i =1:length(sleepPeriod)-1
+    if(sleepPeriod (i+1)-sleepPeriod(i)<10)sleepPeriod(i+1)=sleepPeriod(i);
+    end
+end
+truePeriod = 0;
+for i = 2:length(sleepPeriod)
+    if(sleepPeriod(i-1)==sleepPeriod(i))continue;
+    end
+    truePeriod = [truePeriod,sleepPeriod(i)];
+    
+end
+P =0;
+for i = 2:truePeriod(length(truePeriod))
+    P = [P,0] ; 
+end
+for i = 2:length(truePeriod)-1
+    m =int16(truePeriod(i));
+    if(int16(truePeriod(i+1))-m<20)
+    for j=0:20
+    P(m+j) = 100;
+    end
+    i=i+19;
+    else P(m) = 100;
+    end
+end
+subplot(4,1,3)
+plot(avg);
+hold;
+plot(P);
+subplot(4,1,4)
+plot(S2);
