@@ -1,33 +1,219 @@
-int RPotPin2 = 2;
- 
-int RPotPin1 = 1;
- 
-int RPotPin0 = 0;
- 
-int x=0;
- 
-int y=0;
- 
-int z=0;
+#include<EEPROM.h>
+#include <SPI.h>
+#include <SD.h>
+#define readFromEEPROM 0;
+#define writeToEEPROM 1;
 
+int stat = writeToEEPROM;
+int writeAddress = 0;
+int readAddress = 0;
+int value;
+byte time_high = 0;
+byte time_mid = 0;
+byte time_low = 0;
+int x = 0;
+int y = 0;
+int z = 0;
+byte array[250];
+byte sound[250];
+File dataFile;
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
+  if (!SD.begin(10)) {
+    Serial.println("Card failed, or not present");
+    // don't do anything more:
+    return;
+  }
+  Serial.println("card initialized.");
+  writeTime();
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
-  x= analogRead(RPotPin0);
- 
-  y = analogRead(RPotPin1);
- 
-  z = analogRead(RPotPin2);
- 
-  Serial.print(x);
-  Serial.print(" ");
-  Serial.print(y);
-  Serial.print(" ");
-  Serial.println(z) ;
- 
-  delay(500);
+  char c = 'A';
+  c = Serial.read();
+  if(c == 'E'){
+    //clear EEPROM
+    for (int i = 0 ; i < EEPROM.length() ; i++) {
+    EEPROM.write(i, 0);
+    }
+  }
+  if(c == 'R'){
+    stat = readFromEEPROM;
+    Serial.println("Turn to read mode!");
+    readAddress = 0;
+    Serial.print("Sleeping Period: ");
+    Serial.print(time_high*60);
+    Serial.print(":");
+    Serial.println(time_mid);
+  }
+  if(c == 'W'){
+    stat = writeToEEPROM;
+    Serial.println("Turn to write mode!");
+    writeAddress = 0;
+    time_high = 0;
+    time_mid = 0;
+    time_low = 0;
+    //clear EEPROM
+    for (int i = 0 ; i < EEPROM.length() ; i++) {
+    EEPROM.write(i, 0);
+  }
+   }
+  
+  
+  if(stat){
+    //write data
+    int x_t = analogRead(3);
+    int y_t = analogRead(4);
+    int z_t = analogRead(5);
+    int s = analogRead(0);
+    int x_diff = x_t - x;
+    int y_diff = y_t - y;
+    int z_diff = z_t - z;
+    x = x_t;
+    y = y_t;
+    z = z_t;
+    if(x_diff < 0)x_diff = -1*x_diff;
+    if(y_diff < 0)y_diff = -1*y_diff;
+    if(z_diff < 0)z_diff = -1*z_diff;
+    if((time_low + time_mid + time_high) != 0){
+    int amp = (x_diff+y_diff+z_diff);
+    amp = min (amp, 255);
+    
+    s = min (s, 255);
+    array[time_low] = amp;
+    sound[time_low] = s;
+    Serial.print("sound: ");
+    Serial.println(s);
+    //Serial.println(amp);
+    }
+  }
+  else {
+    //read data
+    readFromSD();
+  }
+  //time increment
+  ++time_low;
+  if(time_low >= 240){
+    //write to SD card
+    if(stat)writeIntoSD();
+    ++time_mid;
+    time_low = 0;
+    if(time_mid >= 60){
+      ++time_high;
+      time_mid = 0;
+    }
+   }
+   delay(250);
+}
+/*void writeData(){
+  //analyze this 1 minute data
+    int detector = 0;
+    int amp = 0;
+    for(int i=0; i < 240; ++i){
+      if(array[i] > 8){
+        //detect movement
+        detector++;
+        amp += array[i];
+      }
+    }
+    if(detector > 0){
+      //write movement into EEPROM
+      EEPROM.write(writeAddress, amp/detector);
+      EEPROM.write(writeAddress + 1, time_high);
+      EEPROM.write(writeAddress + 2, time_mid);   
+    }
+    else {
+     EEPROM.write(writeAddress, 0);
+      EEPROM.write(writeAddress + 1, time_high);
+      EEPROM.write(writeAddress + 2, time_mid);  
+      }
+    writeAddress = writeAddress + 3;
+    //write ending
+    EEPROM.write(writeAddress, 1);
+    if(writeAddress + 2 > EEPROM.length()){
+      writeAddress = 0;
+    }
+    return;
+}
+void readData(){
+  //read data
+    value = EEPROM.read(readAddress);
+    if(value == 1){
+      Serial.println("Done!");
+      readAddress = 0;
+      return;
+    }
+    Serial.print("Amplitude = ");
+    Serial.print(value);
+    //read time
+    Serial.print(" Time =");
+    int high_t = EEPROM.read(readAddress + 1);
+    int low_t = EEPROM.read(readAddress + 2);
+    value = high_t*60 + low_t;
+    Serial.print(value);
+    Serial.print("min");
+    Serial.println();
+    readAddress = readAddress + 3;
+    if(readAddress +2 >= EEPROM.length()){
+      readAddress = 0;
+      }
+      return;
+  }
+*/
+
+void writeTime(){
+  int previousTime = EEPROM.read(0);
+  if(previousTime <=250)EEPROM.write(0, previousTime + 1);
+  else EEPROM.write(0, 0);
+}
+//write data into micro SD card.
+void writeIntoSD(){
+    //open data file
+  String filename ="data";
+  int n = EEPROM.read(0);
+  String n_str = String(n);
+  filename = filename + n_str;
+  filename = filename + ".txt"; 
+    dataFile = SD.open(filename, FILE_WRITE);
+    //if the file is available, write to it:
+    if(dataFile) {
+      //output this 1 min data
+      Serial.println("Successfully write 1 min data");
+      for(int i = 0; i < 240; ++i){
+        dataFile.print(array[i]);
+        dataFile.print(" ");
+        dataFile.println(sound[i]);
+        }
+      dataFile.close();
+      }
+      
+    else {
+      Serial.println("error opening data.txt");
+  }
+}
+
+//read data into micro SD card.
+void readFromSD() {
+  String filename ="data";
+  int n = EEPROM.read(0);
+  String n_str = String(n);
+  filename = filename + n_str;
+  filename = filename + ".txt"; 
+  dataFile = SD.open(filename);
+  if (dataFile) {
+    Serial.println(filename);
+
+    // read from the file until there's nothing else in it:
+    while (dataFile.available()) {
+      if(dataFile.read() == 'm')continue;
+      Serial.write(dataFile.read());
+    }
+    // close the file:
+    dataFile.close();
+  } else {
+    // if the file didn't open, print an error:
+    Serial.println("error opening data.txt");
+  }
 }
