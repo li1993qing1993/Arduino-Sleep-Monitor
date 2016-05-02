@@ -1,13 +1,14 @@
 avg = 0
+avgs = 0
 count = 0
 sum = 0
 sleepPeriod = 0;
-for i = 1:240:length(D2)
+for i = 1:240:length(D1)
     count = 0
     sum = 0
     for j = 0:239
-        if(D2(i+j)>10)
-            sum = sum+D2(i+j);
+        if(D1(i+j)>10)
+            sum = sum+D1(i+j);
             count = count+1;
         end
     end
@@ -16,66 +17,72 @@ for i = 1:240:length(D2)
     else avg = [avg,0];
     end
 end
-subplot(4,1,1)
-plot(D2)
-subplot(4,1,2)
-plot(avg)
-for i = 1:length(avg)
-    period = 0;
-    l= i;
-    t = i;
-    for j = 0:10
-        t = i+j;
-        if(t>length(avg))t=length(avg);
+for i = 1:240:length(S2)
+    count = 0
+    sum = 0
+    for j = 0:239
+        if(S2(i+j)>10)
+            sum = sum+S2(i+j);
+            count = count+1;
         end
-        if(avg(t)>5)
-            for k = 0:15
-                l = i+j+k;
-                if(l>length(avg))
-                    l=length(avg);
+    end
+    if(count>0)
+    avgs = [avgs,sum/count];
+    else avgs = [avgs,0];
+    end
+end
+fileID = fopen('/Users/qingli/Documents/study/EE800/Data/Data6Sound.txt','wt'); 
+fprintf(fileID, '%d\n', avgs);
+fclose(fileID);
+fileID = fopen('/Users/qingli/Documents/study/EE800/Data/Data6.txt','wt'); 
+fprintf(fileID, '%d\n', avg);
+fclose(fileID);
+Period = 0;
+for i = 2 : length(avg)
+    if(avg(i)>5) Period = [Period, 1];
+    else Period = [Period, 0];
+    end
+end
+for i = 1:length(Period)
+    if (Period(i) == 1) 
+        for j = i-10 : i+10
+            if(j<1)continue;
+            end
+            if(j>length(Period))break;
+            end
+            if(Period(j) == 1)
+                for k = i:j
+                    Period(k) = 1;
                 end
-                if(l>5||l==length(avg))
-                period = 1;
-                i = l;
-                break;
+                if(j<i)j=i;
                 end
             end
+            
         end
-        if(period ==1)break;
-        end
-    end
-    if(period ==1)
-        sleepPeriod = [sleepPeriod,i];
     end
 end
-for i =1:length(sleepPeriod)-1
-    if(sleepPeriod (i+1)-sleepPeriod(i)<10)sleepPeriod(i+1)=sleepPeriod(i);
+for i = 1:length(Period)
+    if(Period(i) == 1)
+    left = i-5;
+    right = i+5;
+        if(left<5)
+            left = 1;
+        end
+    
+        if(right>length(Period))
+            right = length(Period);
+        end
+        noise = 0;
+        for j = left: right
+        if(Period(j) == 1 )
+            noise = noise + 1;
+        end
+        end
+        if(noise < 5)Period(i) = 0;
+        end
     end
-end
-truePeriod = 0;
-for i = 2:length(sleepPeriod)
-    if(sleepPeriod(i-1)==sleepPeriod(i))continue;
-    end
-    truePeriod = [truePeriod,sleepPeriod(i)];
     
 end
-P =0;
-for i = 2:truePeriod(length(truePeriod))
-    P = [P,0] ; 
-end
-for i = 2:length(truePeriod)-1
-    m =int16(truePeriod(i));
-    if(int16(truePeriod(i+1))-m<20)
-    for j=0:20
-    P(m+j) = 100;
-    end
-    i=i+19;
-    else P(m) = 100;
-    end
-end
-subplot(4,1,3)
-plot(avg);
-hold;
-plot(P);
-subplot(4,1,4)
-plot(S2);
+fileID = fopen('/Users/qingli/Documents/study/EE800/Data/Data6Period.txt','wt'); 
+fprintf(fileID, '%d\n', Period);
+fclose(fileID);
